@@ -46,4 +46,10 @@ const char *dma_heap_get_name(struct dma_heap *heap);
 
 struct dma_heap *dma_heap_add(const struct dma_heap_export_info *exp_info);
 
+/* Registered heaps have kernel lifetime and do not require a reference. */
+struct dma_heap *dma_heap_find(const char *name);
+
+struct dma_buf *dma_heap_buffer_alloc(struct dma_heap *heap, size_t len,
+				      u32 fd_flags, u64 heap_flags);
+
 #endif /* _DMA_HEAPS_H */

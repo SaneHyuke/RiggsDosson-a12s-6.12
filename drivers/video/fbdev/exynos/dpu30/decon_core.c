@@ -3995,13 +3995,12 @@ static int decon_fb_alloc_memory(struct decon_device *decon, struct decon_win *w
 	dev_info(decon->dev, "wanti %u bytes for window[%d]\n", size, win->idx);
 
 	dma_heap = dma_heap_find("system-uncached");
-	if (IS_ERR(dma_heap)) {
+	if (!dma_heap) {
 		pr_err("dma_heap_find() failed\n");
-		return PTR_ERR(dma_heap);
+		return -ENODEV;
 	}
 
-	buf = dma_heap_buffer_alloc(dma_heap, (size_t)size, 0, 0);
-	dma_heap_put(dma_heap);
+	buf = dma_heap_buffer_alloc(dma_heap, size, 0, 0);
 	if (IS_ERR(buf)) {
 		pr_err("failed to allocate display buffer memory\n");
 		return PTR_ERR(buf);
@@ -4084,16 +4083,15 @@ static int decon_fb_test_alloc_memory(struct decon_device *decon, u32 size)
 	dev_info(decon->dev, "want %u bytes for window[%d]\n", size, win->idx);
 
 	dma_heap = dma_heap_find("system-uncached");
-	if (IS_ERR(dma_heap)) {
+	if (!dma_heap) {
 		pr_err("dma_heap_find() failed\n");
-		return PTR_ERR(dma_heap);
+		return -ENODEV;
 	}
 
-        buf = dma_heap_buffer_alloc(dma_heap, (size_t)size, 0, 0);
-        dma_heap_put(dma_heap);
-        if (IS_ERR(buf)) {
-                pr_err("failed to allocate test buffer memory\n");
-                return PTR_ERR(buf);
+	buf = dma_heap_buffer_alloc(dma_heap, size, 0, 0);
+	if (IS_ERR(buf)) {
+		pr_err("failed to allocate test buffer memory\n");
+		return PTR_ERR(buf);
 	}
 
 	ret = dma_buf_vmap(buf, &vmap);

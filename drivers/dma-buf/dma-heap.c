@@ -48,6 +48,40 @@ static dev_t dma_heap_devt;
 static struct class *dma_heap_class;
 static DEFINE_XARRAY_ALLOC(dma_heap_minors);
 
+struct dma_heap *dma_heap_find(const char *name)
+{
+	struct dma_heap *heap;
+
+	mutex_lock(&heap_list_lock);
+	list_for_each_entry(heap, &heap_list, list) {
+		if (!strcmp(heap->name, name)) {
+			mutex_unlock(&heap_list_lock);
+			return heap;
+		}
+	}
+	mutex_unlock(&heap_list_lock);
+
+	return NULL;
+}
+EXPORT_SYMBOL_GPL(dma_heap_find);
+
+struct dma_buf *dma_heap_buffer_alloc(struct dma_heap *heap, size_t len,
+				      u32 fd_flags, u64 heap_flags)
+{
+	if (fd_flags & ~DMA_HEAP_VALID_FD_FLAGS)
+		return ERR_PTR(-EINVAL);
+
+	if (heap_flags & ~DMA_HEAP_VALID_HEAP_FLAGS)
+		return ERR_PTR(-EINVAL);
+
+	len = PAGE_ALIGN(len);
+	if (!len)
+		return ERR_PTR(-EINVAL);
+
+	return heap->ops->allocate(heap, len, fd_flags, heap_flags);
+}
+EXPORT_SYMBOL_GPL(dma_heap_buffer_alloc);
+
 static int dma_heap_open(struct inode *inode, struct file *file)
 {
 	struct dma_heap *heap;
@@ -71,23 +105,13 @@ static struct dma_buf *dma_heap_ioctl_allocate(struct file *file, void *data)
 	struct dma_heap *heap = file->private_data;
 	struct dma_buf *dmabuf;
 	int fd;
-	size_t len;
 
 	if (heap_allocation->fd)
 		return ERR_PTR(-EINVAL);
 
-	if (heap_allocation->fd_flags & ~DMA_HEAP_VALID_FD_FLAGS)
-		return ERR_PTR(-EINVAL);
-
-	if (heap_allocation->heap_flags & ~DMA_HEAP_VALID_HEAP_FLAGS)
-		return ERR_PTR(-EINVAL);
-
-	len = PAGE_ALIGN(heap_allocation->len);
-	if (!len)
-		return ERR_PTR(-EINVAL);
-
-	dmabuf = heap->ops->allocate(heap, len, heap_allocation->fd_flags,
-				     heap_allocation->heap_flags);
+	dmabuf = dma_heap_buffer_alloc(heap, heap_allocation->len,
+				       heap_allocation->fd_flags,
+				       heap_allocation->heap_flags);
 
 	if (IS_ERR(dmabuf))
 		return dmabuf;
