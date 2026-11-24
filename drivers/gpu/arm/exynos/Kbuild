@@ -171,6 +171,13 @@ mali_kbase-$(CONFIG_SOC_S5E3830) += $(BACKEND_DIR)/dummy/gpexbe_dmabuf_dummy.o
 mali_kbase-$(CONFIG_SOC_EXYNOS2100) += $(BACKEND_DIR)/dummy/gpexbe_dmabuf_dummy.o
 mali_kbase-$(CONFIG_SOC_S5E8825) += $(BACKEND_DIR)/dummy/gpexbe_dmabuf_dummy.o
 
+ifeq ($(filter y m, \
+	$(CONFIG_SOC_EXYNOS9810) $(CONFIG_SOC_EXYNOS9820) $(CONFIG_SOC_EXYNOS9830) \
+	$(CONFIG_SOC_EXYNOS9610) $(CONFIG_SOC_EXYNOS9630) $(CONFIG_SOC_S5E3830) \
+	$(CONFIG_SOC_EXYNOS2100) $(CONFIG_SOC_S5E8825)),)
+mali_kbase-y += $(BACKEND_DIR)/dummy/gpexbe_dmabuf_dummy.o
+endif
+
 ifeq ($(CONFIG_MALI_EXYNOS_LLC), y)
 	mali_kbase-y += $(BACKEND_DIR)/gpexbe_llc_coherency.o
 else
@@ -202,6 +209,15 @@ else
 	mali_kbase-$(CONFIG_SOC_S5E3830) += $(BACKEND_DIR)/dummy/gpexbe_notifier_dummy.o
 	mali_kbase-$(CONFIG_SOC_EXYNOS2100) += $(BACKEND_DIR)/gpexbe_notifier_v3.o
 	mali_kbase-$(CONFIG_SOC_S5E8825) += $(BACKEND_DIR)/gpexbe_notifier_v3.o
+endif
+
+ifeq ($(filter y m, \
+	$(CONFIG_SOC_EXYNOS9810) $(CONFIG_SOC_EXYNOS9820) $(CONFIG_SOC_EXYNOS9830) \
+	$(CONFIG_SOC_EXYNOS9610) $(CONFIG_SOC_EXYNOS9630) $(CONFIG_SOC_S5E3830) \
+	$(CONFIG_SOC_EXYNOS2100) $(CONFIG_SOC_S5E8825)),)
+ifeq (,$(findstring y,$(CONFIG_KUNIT)$(CONFIG_SEC_KUNIT)))
+mali_kbase-y += $(BACKEND_DIR)/dummy/gpexbe_notifier_dummy.o
+endif
 endif
 
 ifeq ($(CONFIG_MALI_EXYNOS_PM), y)
