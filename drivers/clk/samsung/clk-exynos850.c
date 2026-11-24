@@ -8,7 +8,9 @@
 
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
+#include <linux/io.h>
 #include <linux/of.h>
+#include <linux/of_address.h>
 #include <linux/platform_device.h>
 
 #include <dt-bindings/clock/exynos850.h>
@@ -18,7 +20,7 @@
 #include "clk-exynos-arm64.h"
 
 /* NOTE: Must be equal to the last clock ID increased by one */
-#define CLKS_NR_TOP			(CLK_DOUT_CPUCL1_SWITCH + 1)
+#define CLKS_NR_TOP			(CLK_OSC_NFC + 1)
 #define CLKS_NR_APM			(CLK_GOUT_SYSREG_APM_PCLK + 1)
 #define CLKS_NR_AUD			(CLK_GOUT_AUD_CMU_AUD_PCLK + 1)
 #define CLKS_NR_CMGP			(CLK_GOUT_SYSREG_CMGP_PCLK + 1)
@@ -128,6 +130,8 @@
 #define CLK_CON_GAT_GATE_CLKCMU_PERI_BUS	0x2080
 #define CLK_CON_GAT_GATE_CLKCMU_PERI_IP		0x2084
 #define CLK_CON_GAT_GATE_CLKCMU_PERI_UART	0x2088
+#define CLK_CON_CLKOUT0			0x0a00
+#define CLKOUT0_SEL_TCXO_SHIFT		8
 
 static const unsigned long top_clk_regs[] __initconst = {
 	PLL_LOCKTIME_PLL_MMC,
@@ -223,6 +227,7 @@ static const unsigned long top_clk_regs[] __initconst = {
 	CLK_CON_GAT_GATE_CLKCMU_PERI_BUS,
 	CLK_CON_GAT_GATE_CLKCMU_PERI_IP,
 	CLK_CON_GAT_GATE_CLKCMU_PERI_UART,
+	CLK_CON_CLKOUT0,
 };
 
 /*
@@ -558,6 +563,9 @@ static const struct samsung_gate_clock top_gate_clks[] __initconst = {
 	     CLK_CON_GAT_GATE_CLKCMU_PERI_UART, 21, 0, 0),
 	GATE(CLK_GOUT_PERI_IP, "gout_peri_ip", "mout_peri_ip",
 	     CLK_CON_GAT_GATE_CLKCMU_PERI_IP, 21, 0, 0),
+
+	GATE(CLK_OSC_NFC, "osc_nfc", "oscclk", CLK_CON_CLKOUT0, 0, 0,
+	     CLK_GATE_SET_TO_DISABLE),
 };
 
 static const struct samsung_cmu_info top_cmu_info __initconst = {
@@ -576,6 +584,17 @@ static const struct samsung_cmu_info top_cmu_info __initconst = {
 
 static void __init exynos850_cmu_top_init(struct device_node *np)
 {
+	void __iomem *base;
+	u32 val;
+
+	base = of_iomap(np, 0);
+	if (!base)
+		panic("%s: failed to map registers\n", __func__);
+
+	val = readl(base + CLK_CON_CLKOUT0);
+	writel(val | BIT(CLKOUT0_SEL_TCXO_SHIFT), base + CLK_CON_CLKOUT0);
+	iounmap(base);
+
 	exynos_arm64_register_cmu(NULL, np, &top_cmu_info);
 }
 
@@ -2251,10 +2270,11 @@ static const struct samsung_gate_clock dpu_gate_clks[] __initconst = {
 	     CLK_CON_GAT_CLK_DPU_CMU_DPU_PCLK, 21, CLK_IGNORE_UNUSED, 0),
 	GATE(CLK_GOUT_DPU_DECON0_ACLK, "gout_dpu_decon0_aclk", "mout_dpu_user",
 	     CLK_CON_GAT_GOUT_DPU_ACLK_DECON0, 21, 0, 0),
+	/* DPU30 accesses DPP and DMA directly through the shared display domain. */
 	GATE(CLK_GOUT_DPU_DMA_ACLK, "gout_dpu_dma_aclk", "mout_dpu_user",
-	     CLK_CON_GAT_GOUT_DPU_ACLK_DMA, 21, 0, 0),
+	     CLK_CON_GAT_GOUT_DPU_ACLK_DMA, 21, CLK_IGNORE_UNUSED, 0),
 	GATE(CLK_GOUT_DPU_DPP_ACLK, "gout_dpu_dpp_aclk", "mout_dpu_user",
-	     CLK_CON_GAT_GOUT_DPU_ACLK_DPP, 21, 0, 0),
+	     CLK_CON_GAT_GOUT_DPU_ACLK_DPP, 21, CLK_IGNORE_UNUSED, 0),
 	GATE(CLK_GOUT_DPU_PPMU_ACLK, "gout_dpu_ppmu_aclk", "mout_dpu_user",
 	     CLK_CON_GAT_GOUT_DPU_PPMU_ACLK, 21, 0, 0),
 	GATE(CLK_GOUT_DPU_PPMU_PCLK, "gout_dpu_ppmu_pclk", "dout_dpu_busp",
@@ -2262,7 +2282,7 @@ static const struct samsung_gate_clock dpu_gate_clks[] __initconst = {
 	GATE(CLK_GOUT_DPU_SMMU_CLK, "gout_dpu_smmu_clk", "mout_dpu_user",
 	     CLK_CON_GAT_GOUT_DPU_SMMU_CLK, 21, 0, 0),
 	GATE(CLK_GOUT_DPU_SYSREG_PCLK, "gout_dpu_sysreg_pclk", "dout_dpu_busp",
-	     CLK_CON_GAT_GOUT_DPU_SYSREG_PCLK, 21, 0, 0),
+	     CLK_CON_GAT_GOUT_DPU_SYSREG_PCLK, 21, CLK_IGNORE_UNUSED, 0),
 };
 
 static const struct samsung_cmu_info dpu_cmu_info __initconst = {

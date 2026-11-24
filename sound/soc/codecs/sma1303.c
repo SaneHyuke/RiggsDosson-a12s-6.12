@@ -1701,6 +1701,7 @@ static int sma1303_i2c_probe(struct i2c_client *client)
 	if ((ret != 0) || ((device_info & 0xF8) != SMA1303_DEVICE_ID)) {
 		dev_err(&client->dev, "device initialization error (%d 0x%02X)",
 				ret, device_info);
+		return -ENODEV;
 	}
 	dev_dbg(&client->dev, "chip version 0x%02X\n", device_info);
 
@@ -1790,6 +1791,8 @@ static void sma1303_i2c_remove(struct i2c_client *client)
 	if (sma1303->attr_grp)
 		sysfs_remove_group(sma1303->kobj, sma1303->attr_grp);
 	cancel_delayed_work_sync(&sma1303->check_fault_work);
+	if (sma1303->attr_grp)
+		sysfs_remove_group(sma1303->kobj, sma1303->attr_grp);
 }
 
 static const struct i2c_device_id sma1303_i2c_id[] = {
@@ -1800,6 +1803,7 @@ MODULE_DEVICE_TABLE(i2c, sma1303_i2c_id);
 
 static const struct of_device_id sma1303_of_match[] = {
 	{ .compatible = "irondevice,sma1303", },
+	{ .compatible = "siliconmitus,sma1303", },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, sma1303_of_match);

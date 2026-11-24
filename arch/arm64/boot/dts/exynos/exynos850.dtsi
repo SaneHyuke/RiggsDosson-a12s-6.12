@@ -11,6 +11,7 @@
  */
 
 #include <dt-bindings/clock/exynos850.h>
+#include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/soc/samsung,exynos-usi.h>
 
@@ -29,6 +30,17 @@
 		pinctrl3 = &pinctrl_hsi;
 		pinctrl4 = &pinctrl_core;
 		pinctrl5 = &pinctrl_peri;
+	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <1>;
+		ranges;
+
+		bootloader_fb: bootloader-fb {
+			compatible = "exynos,fb_handover";
+			status = "disabled";
+		};
 	};
 
 	arm-pmu {
@@ -307,6 +319,17 @@
 			clock-names = "oscclk", "gout_clkcmu_cmgp_bus";
 		};
 
+		exynos_adc: adc@11c40000 {
+			compatible = "samsung,exynos-adc-v3";
+			reg = <0x11c40000 0x100>;
+			interrupts = <GIC_SPI 4 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&cmu_cmgp CLK_GOUT_CMGP_ADC_S0_PCLK>;
+			clock-names = "gate_adcif";
+			#io-channel-cells = <1>;
+			io-channel-ranges;
+			status = "disabled";
+		};
+
 		cmu_core: clock-controller@12000000 {
 			compatible = "samsung,exynos850-cmu-core";
 			reg = <0x12000000 0x8000>;
@@ -352,6 +375,145 @@
 
 			clocks = <&oscclk>, <&cmu_top CLK_DOUT_DPU>;
 			clock-names = "oscclk", "dout_dpu";
+		};
+
+		disp_ss: disp_ss@13021000 {
+			compatible = "samsung,exynos9-disp_ss";
+			reg = <0x13021000 0x10>;
+		};
+
+		mipi_phy_dsim0: dphy_m4s0_dsim0@13080000 {
+			compatible = "samsung,mipi-phy-m4s0";
+			reg = <0x13080000 0x3000>;
+			samsung,pmu-syscon = <&pmu_system_controller>;
+			isolation = <0x70c>;
+			owner = <0x00>;
+			#phy-cells = <1>;
+		};
+
+		iommu_group_dpu: iommu-group-dpu {
+			compatible = "samsung,sysmmu-group";
+		};
+
+		dsim_0: dsim@13070000 {
+			compatible = "samsung,exynos9-dsim";
+			reg = <0x13070000 0x200 0x13080000 0x3000>;
+			interrupts = <GIC_SPI 121 IRQ_TYPE_LEVEL_HIGH>;
+			iommus = <&sysmmu_dpu>;
+			samsung,iommu-group = <&iommu_group_dpu>;
+			#dma-address-cells = <1>;
+			#dma-size-cells = <1>;
+			dma-window = <0x10000000 0xefff0000>;
+			samsung,iommu-identity-map = <0x00 0xf9800000 0x1400000
+						     0x00 0xfac00000 0x1400000>;
+			dsim,hold-rpm-on-boot;
+			clock-names = "aclk";
+			clocks = <&cmu_dpu CLK_GOUT_DPU_CMU_DPU_PCLK>;
+			phys = <&mipi_phy_dsim0 0>;
+			phy-names = "dsim_dphy";
+		};
+
+		decon_0: decon_f@13060000 {
+			compatible = "samsung,exynos9-decon";
+			reg = <0x13060000 0x10000>;
+			interrupts = <GIC_SPI 114 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 113 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 112 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 34 IRQ_TYPE_LEVEL_HIGH>;
+			pinctrl-names = "hw_te_on", "hw_te_off";
+			pinctrl-0 = <&decon_te_on>;
+			pinctrl-1 = <&decon_te_off>;
+			max_win = <4>;
+			default_win = <0>;
+			default_ch = <0>;
+			psr_mode = <0>;
+			trig_mode = <0>;
+			dsi_mode = <0>;
+			out_type = <0>;
+			out_idx = <0>;
+			ppc = <1>;
+			line_mem_cnt = <4>;
+			cycle_per_line = <8>;
+			chip_ver = <0xef6>;
+			dpp_cnt = <4>;
+			dsim_cnt = <1>;
+			decon_cnt = <1>;
+			#address-cells = <2>;
+			#size-cells = <1>;
+			gpios = <&gpa4 1 GPIO_ACTIVE_LOW>;
+			clock-names = "aclk", "dpp_aclk", "dma_aclk";
+			clocks = <&cmu_dpu CLK_GOUT_DPU_DECON0_ACLK>,
+				 <&cmu_dpu CLK_GOUT_DPU_DPP_ACLK>,
+				 <&cmu_dpu CLK_GOUT_DPU_DMA_ACLK>;
+
+			te_eint {
+				reg = <0x00 0x11850a10 0x04>;
+			};
+		};
+
+		dpp_0: dpp@130b4000 {
+			compatible = "samsung,exynos9-dpp";
+			reg = <0x130b4000 0x1000
+			       0x13054000 0x1000
+			       0x130b0000 0x110>;
+			interrupts = <GIC_SPI 120 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 116 IRQ_TYPE_LEVEL_HIGH>;
+			attr = <0x50016>;
+			port = <0>;
+			src_f_w = <0x10 0xfffe 0x01>;
+			src_f_h = <0x10 0x1ffe 0x01>;
+			src_w = <0x10 0x1000 0x01>;
+			src_h = <0x10 0x1000 0x01>;
+			src_xy_align = <0x01 0x01>;
+			dst_f_w = <0x10 0x1ffe 0x01>;
+			dst_f_h = <0x10 0x1ffe 0x01>;
+			dst_w = <0x10 0x1000 0x01>;
+			dst_h = <0x10 0x1000 0x01>;
+			dst_xy_align = <0x01 0x01>;
+			blk_w = <0x04 0x1000 0x01>;
+			blk_h = <0x01 0x1000 0x01>;
+			blk_xy_align = <0x01 0x01>;
+			src_h_rot_max = <0x870>;
+			scale_down = <0x01>;
+			scale_up = <0x01>;
+			fmt_cnt = <0x07>;
+			fmt = <0x0d 0x0e 0x16 0x17 0x18 0x19 0x1e>;
+		};
+
+		dpp_1: dpp@130b2000 {
+			compatible = "samsung,exynos9-dpp";
+			reg = <0x130b2000 0x1000>;
+			interrupts = <GIC_SPI 118 IRQ_TYPE_LEVEL_HIGH>;
+			attr = <0x10006>;
+			port = <0>;
+			scale_down = <0x01>;
+			scale_up = <0x01>;
+			fmt_cnt = <0x02>;
+			fmt = <0x0d 0x0e>;
+		};
+
+		dpp_2: dpp@130b3000 {
+			compatible = "samsung,exynos9-dpp";
+			reg = <0x130b3000 0x1000>;
+			interrupts = <GIC_SPI 119 IRQ_TYPE_LEVEL_HIGH>;
+			attr = <0x10006>;
+			port = <0>;
+			scale_down = <0x01>;
+			scale_up = <0x01>;
+			fmt_cnt = <0x02>;
+			fmt = <0x0d 0x0e>;
+		};
+
+		dpp_3: dpp@130b1000 {
+			compatible = "samsung,exynos9-dpp";
+			reg = <0x130b1000 0x1000>;
+			interrupts = <GIC_SPI 117 IRQ_TYPE_LEVEL_HIGH>;
+			attr = <0x10006>;
+			port = <0>;
+			scale_down = <0x01>;
+			scale_up = <0x01>;
+			fmt_cnt = <0x02>;
+			fmt = <0x0d 0x0e>;
 		};
 
 		cmu_hsi: clock-controller@13400000 {
@@ -568,11 +730,18 @@
 		};
 
 		sysmmu_dpu: sysmmu@130c0000 {
-			compatible = "samsung,exynos-sysmmu";
+			compatible = "samsung,sysmmu-v8";
 			reg = <0x130c0000 0x9000>;
 			interrupts = <GIC_SPI 122 IRQ_TYPE_LEVEL_HIGH>;
-			clock-names = "sysmmu";
+			clock-names = "gate";
 			clocks = <&cmu_dpu CLK_GOUT_DPU_SMMU_CLK>;
+			qos = <0x0f>;
+			sysmmu,async-fault;
+			sysmmu,default_tlb = <0x0a>;
+			sysmmu,tlb_property = <0x01 0x0a 0x100 0xf0002
+					       0x02 0x0a 0x100 0xf0004
+					       0x03 0x0a 0x100 0xf0006
+					       0x04 0x0a 0x100 0xf0008>;
 			#iommu-cells = <0>;
 		};
 

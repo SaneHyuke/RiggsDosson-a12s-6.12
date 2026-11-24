@@ -36,10 +36,10 @@ static struct mfd_cell sm5714_devs[] = {
 	{ .name = "sm5714-muic", },
 #endif  /* CONFIG_MUIC_SM5714 */
 #if IS_ENABLED(CONFIG_FUELGAUGE_SM5714)
-	{ .name = "sm5714-fuelgauge", },
+	{ .name = "sm5714-fuelgauge", .of_compatible = "samsung,sm5714-fuelgauge", },
 #endif  /* CONFIG_FUELGAUGE_SM5714 */
 #if IS_ENABLED(CONFIG_CHARGER_SM5714)
-	{ .name = "sm5714-charger", },
+	{ .name = "sm5714-charger", .of_compatible = "samsung,sm5714-charger", },
 #endif  /* CONFIG_CHARGER_SM5714 */
 #if IS_ENABLED(CONFIG_LEDS_SM5714)
 	{ .name = "sm5714-fled", },
@@ -265,6 +265,8 @@ static int of_sm5714_dt(struct device *dev, struct sm5714_platform_data *pdata)
 		return -EINVAL;
 
 	pdata->irq_gpio = of_get_named_gpio(np_sm5714, "sm5714,irq-gpio", 0);
+	if (pdata->irq_gpio < 0)
+		return pdata->irq_gpio;
 	pdata->wakeup = of_property_read_bool(np_sm5714, "sm5714,wakeup");
 
 	pr_info("%s: irq-gpio: %u \n", __func__, pdata->irq_gpio);
@@ -320,16 +322,6 @@ static int sm5714_i2c_probe(struct i2c_client *i2c)
 	sm5714->irq = i2c->irq;
 	sm5714->suspended = false;
 	init_waitqueue_head(&sm5714->suspend_wait);
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 188)
-	wakeup_source_init(sm5714->irq_ws, "sm5714_mfd");   // 4.19 R
-	if (!(sm5714->irq_ws)) {
-		sm5714->irq_ws = wakeup_source_create("sm5714_mfd"); // 4.19 Q
-		if (sm5714->irq_ws)
-			wakeup_source_add(sm5714->irq_ws);
-	}
-#else
-	sm5714->irq_ws = wakeup_source_register(NULL, "sm5714_mfd"); // 5.4 R
-#endif
 
 	if (pdata) {
 		sm5714->pdata = pdata;
@@ -349,6 +341,21 @@ static int sm5714_i2c_probe(struct i2c_client *i2c)
 	} else {
 		ret = -EINVAL;
 		goto err;
+	}
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 188)
+	wakeup_source_init(sm5714->irq_ws, "sm5714_mfd");   // 4.19 R
+	if (!(sm5714->irq_ws)) {
+		sm5714->irq_ws = wakeup_source_create("sm5714_mfd"); // 4.19 Q
+		if (sm5714->irq_ws)
+			wakeup_source_add(sm5714->irq_ws);
+	}
+#else
+	sm5714->irq_ws = wakeup_source_register(NULL, "sm5714_mfd"); // 5.4 R
+#endif
+	if (IS_ERR(sm5714->irq_ws)) {
+		ret = PTR_ERR(sm5714->irq_ws);
+		goto err_irq_base;
 	}
 
 	mutex_init(&sm5714->i2c_lock);
@@ -372,31 +379,39 @@ static int sm5714_i2c_probe(struct i2c_client *i2c)
 #else
 	sm5714->fuelgauge = i2c_new_dummy_device(i2c->adapter, SM5714_I2C_SADR_FG);
 #endif
+	if (IS_ERR(sm5714->fuelgauge)) {
+		ret = PTR_ERR(sm5714->fuelgauge);
+		goto err_w_lock;
+	}
 	i2c_set_clientdata(sm5714->fuelgauge, sm5714);
     /* Check FG I2C transmission */
     ret = sm5714_read_word(sm5714->fuelgauge, SM5714_FG_REG_DEVICE_ID);
     if ((unsigned int)ret > 0xFF) {
 		pr_err("%s:%s fail to setup FG I2C transmission (ret=0x%x)\n", MFD_DEV_NAME, __func__, ret);
 		ret = -ENODEV;
-		goto err_w_lock;
-    }
+		goto err_dummy_devices;
+	}
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0)
 	sm5714->muic = i2c_new_dummy(i2c->adapter, SM5714_I2C_SADR_MUIC);
 #else
 	sm5714->muic = i2c_new_dummy_device(i2c->adapter, SM5714_I2C_SADR_MUIC);
 #endif
+	if (IS_ERR(sm5714->muic)) {
+		ret = PTR_ERR(sm5714->muic);
+		goto err_dummy_devices;
+	}
 	i2c_set_clientdata(sm5714->muic, sm5714);
     /* Check MUIC I2C transmission */
     ret = sm5714_read_reg(sm5714->muic, SM5714_MUIC_REG_DeviceID, &temp);
 	if (ret < 0 || temp != 0x1) {
 		pr_err("%s:%s fail to setup MUIC I2C transmission (reg_data=0x%x)\n", MFD_DEV_NAME, __func__, temp);
 		ret = -ENODEV;
-		goto err_w_lock;
+		goto err_dummy_devices;
 	}
 
 	ret = sm5714_irq_init(sm5714);
 	if (ret < 0)
-		goto err_irq_init;
+		goto err_dummy_devices;
 
 	ret = mfd_add_devices(sm5714->dev, -1, sm5714_devs, ARRAY_SIZE(sm5714_devs), NULL, 0, NULL);
 	if (ret < 0)
@@ -411,11 +426,18 @@ static int sm5714_i2c_probe(struct i2c_client *i2c)
 err_mfd:
 	mfd_remove_devices(sm5714->dev);
     sm5714_irq_exit(sm5714);
-err_irq_init:
-	i2c_unregister_device(sm5714->fuelgauge);
-    i2c_unregister_device(sm5714->muic);
+err_dummy_devices:
+	if (!IS_ERR_OR_NULL(sm5714->muic))
+		i2c_unregister_device(sm5714->muic);
+	if (!IS_ERR_OR_NULL(sm5714->fuelgauge))
+		i2c_unregister_device(sm5714->fuelgauge);
 err_w_lock:
 	mutex_destroy(&sm5714->i2c_lock);
+	if (sm5714->irq_ws && !IS_ERR(sm5714->irq_ws))
+		wakeup_source_unregister(sm5714->irq_ws);
+	i2c_set_clientdata(i2c, NULL);
+err_irq_base:
+	irq_free_descs(pdata->irq_base, SM5714_IRQ_NR);
 err:
 	kfree(sm5714);
 
@@ -427,12 +449,15 @@ static void sm5714_i2c_remove(struct i2c_client *i2c)
 	struct sm5714_dev *sm5714 = i2c_get_clientdata(i2c);
 
 	mfd_remove_devices(sm5714->dev);
-    sm5714_irq_exit(sm5714);
+	sm5714_irq_exit(sm5714);
+	irq_free_descs(sm5714->pdata->irq_base, SM5714_IRQ_NR);
 
 	i2c_unregister_device(sm5714->muic);
     i2c_unregister_device(sm5714->fuelgauge);
 
     mutex_destroy(&sm5714->i2c_lock);
+	wakeup_source_unregister(sm5714->irq_ws);
+	i2c_set_clientdata(i2c, NULL);
 
     kfree(sm5714);
 

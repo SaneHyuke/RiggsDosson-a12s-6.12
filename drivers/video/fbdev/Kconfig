@@ -1765,6 +1765,10 @@ config FB_BROADSHEET
 	  and could also have been called by other names when coupled with
 	  a bridge adapter.
 
+if FB
+source "drivers/video/fbdev/exynos/Kconfig"
+endif
+
 config FB_HYPERV
 	tristate "Microsoft Hyper-V Synthetic Video support"
 	depends on FB && HYPERV

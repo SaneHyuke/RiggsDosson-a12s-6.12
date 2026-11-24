@@ -51,7 +51,7 @@ struct sec_ttf_data {
 int sec_calc_ttf(struct sec_battery_info * battery, unsigned int ttf_curr);
 extern void sec_bat_calc_time_to_full(struct sec_battery_info * battery);
 extern void sec_bat_time_to_full_work(struct work_struct *work);
-extern void ttf_init(struct sec_battery_info *battery);
+extern int ttf_init(struct sec_battery_info *battery);
 extern void ttf_work_start(struct sec_battery_info *battery);
 extern int ttf_display(struct sec_battery_info *battery);
 #ifdef CONFIG_OF

@@ -70,4 +70,26 @@ source "drivers/nfc/st-nci/Kconfig"
 source "drivers/nfc/nxp-nci/Kconfig"
 source "drivers/nfc/s3fwrn5/Kconfig"
 source "drivers/nfc/st95hf/Kconfig"
+
+config NFC_PN547
+	tristate "NXP PN547 NFC device driver"
+	depends on I2C
+	help
+	  Say Y here to support the NXP PN547 NFC controller over I2C.
+	  The driver provides secure element access through the NFC device
+	  node. To compile this driver as a module, choose M here: the module
+	  will be called pn547.
+
+	  If unsure, say N.
+
+config NFC_FEATURE_SN100U
+	bool "NXP SN100U feature support"
+	depends on NFC_PN547=y
+	help
+	  Enable the reset-protection and embedded SE cold-reset support
+	  used by the Samsung Exynos 850 platform. This code is linked into
+	  the PN547 driver, so PN547 must be built in.
+
+	  If unsure, say N.
+
 endmenu

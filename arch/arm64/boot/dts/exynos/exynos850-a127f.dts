@@ -2,9 +2,9 @@
 /*
  * Samsung Galaxy A12s (SM-A127F), Exynos 850 / 3830
  *
- * This is a minimal upstream-Exynos850 port. Board-specific PMIC, panel,
- * camera, modem, and peripheral nodes must come from the stock A12s DTBO
- * only after each compatible binding is confirmed for this 6.12 tree.
+ * Board-specific PMIC, camera, modem, and unported peripheral nodes must come
+ * from the stock A12s DTBO only after each compatible binding is confirmed
+ * for this 6.12 tree.
  */
 
 /dts-v1/;
@@ -12,6 +12,7 @@
 #include "exynos850.dtsi"
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
+#include "exynos-pinctrl.h"
 
 / {
 	model = "Samsung Galaxy A12s";
@@ -20,11 +21,19 @@
 	aliases {
 		mmc0 = &mmc_0;
 		serial0 = &serial_0;
+		decon = &decon_0;
+		dsim = &dsim_0;
+		dpp0 = &dpp_0;
+		dpp1 = &dpp_1;
+		dpp2 = &dpp_2;
+		dpp3 = &dpp_3;
+		panel0 = &panel_0;
+		panel_drv0 = &panel_drv_0;
 	};
 
 	chosen {
 		stdout-path = &serial_0;
-		bootargs = "console=ttyS0,115200n8 rootwait";
+		bootargs = "console=ttyS0,115200n8 rootwait lcdtype=0xaa240";
 	};
 
 	reg_usb_dummy: regulator-usb-dummy {
@@ -32,6 +41,25 @@
 		regulator-name = "usb_dummy";
 		regulator-min-microvolt = <5000000>;
 		regulator-max-microvolt = <5000000>;
+	};
+
+	nfc_pvdd: regulator-nfc-pvdd {
+		compatible = "regulator-fixed";
+		regulator-name = "nfc_pvdd";
+		gpio = <&gpg1 3 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		pinctrl-names = "default";
+		pinctrl-0 = <&nfc_pvdd_pins>;
+	};
+
+	/* S2MPU12 LDO28 stays enabled by the bootloader at 1.8 V. */
+	vdd_ldo28: regulator-ldo28 {
+		compatible = "regulator-fixed";
+		regulator-name = "vdd_ldo28";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-boot-on;
+		regulator-always-on;
 	};
 
 	lcd_fixed_regulator {
@@ -103,20 +131,406 @@
 
 		key-volume-up {
 			label = "Volume Up";
-			gpios = <&gpa0 2 GPIO_ACTIVE_LOW>;
+			gpios = <&gpa0 7 GPIO_ACTIVE_LOW>;
 			linux,code = <KEY_VOLUMEUP>;
 		};
 
 		key-volume-down {
 			label = "Volume Down";
-			gpios = <&gpa0 3 GPIO_ACTIVE_LOW>;
+			gpios = <&gpa1 0 GPIO_ACTIVE_LOW>;
 			linux,code = <KEY_VOLUMEDOWN>;
 		};
+	};
+
+	panel_0: panel_0 {
+		compatible = "samsung,exynos-panel";
+		lcd_info = <&nt36525b_ctc>;
+	};
+
+	panel_drv_0: panel_drv@0 {
+		compatible = "samsung,panel-drv";
+		status = "okay";
+		ddi-info = <&nt36525b_ctc>;
+		#address-cells = <2>;
+		#size-cells = <1>;
+		ranges;
+		pinctrl-names = "default";
+		pinctrl-0 = <&disp_rst_ctrl &disp_blen_ctrl &disp_lcd_id>;
+
+		regulators {
+			gpio_lcd_bl_en {
+				regulator = <&gpio_lcd_bl_en>;
+			};
+		};
+
+		panel-lookup {
+			panel-id-addr = <0xda 0xdb 0xdc>;
+			panel-id-len = <0x01 0x01 0x01>;
+			panel-name = "nt36525b_ctc_a12s_default";
+			panel-ddi-info = <&nt36525b_ctc>;
+			panel-lut = <0xaa240 0xffffff 0x00 0x00>;
+		};
+	};
+
+	decon_board_nt36525b: decon_board_nt36525b {
+		panel_boot_enable {
+			type = "regulator,enable", "vdd_ldo28", "regulator,enable", "gpio_lcd_rst", "regulator,enable", "gpio_lcd_bl_en";
+		};
+
+		panel_power_enable {
+			type = "regulator,enable", "vdd_ldo28", "delay,usleep", "1000", "regulator,enable", "gpio_lcd_bl_en", "delay,usleep", "1000";
+		};
+
+		panel_power_disable {
+			type = "delay,usleep", "3000", "regulator,disable", "gpio_lcd_bl_en", "delay,usleep", "5000", "regulator,disable", "vdd_ldo28", "delay,msleep", "30";
+		};
+
+		panel_reset {
+			type = "delay,usleep", "10000", "regulator,enable", "gpio_lcd_rst", "delay,usleep", "1000", "regulator,disable", "gpio_lcd_rst", "delay,usleep", "3500", "regulator,enable", "gpio_lcd_rst", "delay,usleep", "10000";
+		};
+
+		panel_reset_disable {
+			type = "delay,msleep", "60", "regulator,disable", "gpio_lcd_rst", "delay,usleep", "5000";
+		};
+
+		panel_not_connected {
+			type = "regulator,disable", "vdd_ldo28", "regulator,disable", "gpio_lcd_rst", "regulator,disable", "gpio_lcd_bl_en";
+		};
+	};
+
+	nt36525b_ctc: nt36525b_ctc {
+		id = <0xaa240>;
+		decon_board = <&decon_board_nt36525b>;
+		mode = <0x00>;
+		resolution = <0x2d0 0x640>;
+		size = <0x44 0x97>;
+		timing,refresh = <0x3c>;
+		timing,h-porch = <0x6e 0x46 0x1c>;
+		timing,v-porch = <0xfc 0x08 0x02>;
+		timing,dsi-hs-clk = <0x33e>;
+		timing,pmsk = <0x02 0xff 0x02 0x6276 0x00 0x00 0x00 0x00
+			       0x00 0x00 0x00 0x00 0x00 0x00>;
+		timing,dsi-escape-clk = <0x14>;
+		type_of_ddi = <0x00>;
+		dsc_en = <0x00>;
+		dsc_cnt = <0x00>;
+		dsc_slice_num = <0x00>;
+		dsc_slice_h = <0x00>;
+		data_lane = <0x03>;
+		mres_en = <0x00>;
+		active_fps = <0x3c>;
+		default_mode = <0x00>;
+		display_mode = <0x2d0 0x640 0x3c 0x00 0x00 0x00 0x00 0x08>;
+		hdr_num = <0x00>;
+		hdr_type = <0x02 0x00 0x00 0x00>;
+		hdr_max_luma = <0x5265c0>;
+		hdr_max_avg_luma = <0x124f80>;
+		hdr_min_luma = <0x05>;
+	};
+
+};
+
+&bootloader_fb {
+	reg = <0x00 0xfa000000 0xd00000>;
+	status = "okay";
+};
+
+&pinctrl_alive {
+	decon_te_on: decon-te-on {
+		samsung,pins = "gpa4-1";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_EINT>;
+	};
+
+	decon_te_off: decon-te-off {
+		samsung,pins = "gpa4-1";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_INPUT>;
+	};
+
+	tsp_irq_on: tsp-irq-on {
+		samsung,pins = "gpa0-0";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_EINT>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
+		samsung,pin-drv = <EXYNOS5420_PIN_DRV_LV1>;
+	};
+
+	tsp_irq_off: tsp-irq-off {
+		samsung,pins = "gpa0-0";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_INPUT>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_DOWN>;
+	};
+
+	tsp_rst_on: tsp-rst-on {
+		samsung,pins = "gpa3-0";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_OUTPUT>;
+		samsung,pin-val = <1>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
+	};
+
+	tsp_rst_off: tsp-rst-off {
+		samsung,pins = "gpa3-0";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_INPUT>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_DOWN>;
+	};
+
+	tsp_id3_on: tsp-id3-on {
+		samsung,pins = "gpa0-2";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_INPUT>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
+	};
+
+	tsp_id3_off: tsp-id3-off {
+		samsung,pins = "gpa0-2";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_INPUT>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_DOWN>;
+	};
+
+	nfc_xclkout: nfc-xclkout {
+		samsung,pins = "gpq0-2";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_2>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
+	};
+
+	nfc_xclkout_nc: nfc-xclkout-nc {
+		samsung,pins = "gpq0-2";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_INPUT>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_DOWN>;
+	};
+
+	nfc_clk_req: nfc-clk-req {
+		samsung,pins = "gpa3-4";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_2>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_DOWN>;
+	};
+
+	nfc_clk_req_nc: nfc-clk-req-nc {
+		samsung,pins = "gpa3-4";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_INPUT>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_DOWN>;
+	};
+};
+
+&pinctrl_cmgp {
+	spi1_bus_pins: spi1-bus-pins {
+		samsung,pins = "gpm0-0", "gpm1-0", "gpm2-0";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_2>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
+		samsung,pin-drv = <EXYNOS5420_PIN_DRV_LV1>;
+	};
+
+	spi1_cs_pins: spi1-cs-pins {
+		samsung,pins = "gpm3-0";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_OUTPUT>;
+		samsung,pin-val = <1>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
+		samsung,pin-drv = <EXYNOS5420_PIN_DRV_LV1>;
+	};
+};
+
+&pinctrl_peri {
+	disp_rst_ctrl: disp-rst-ctrl {
+		samsung,pins = "gpg2-4";
+		samsung,pin-con-pdn = <EXYNOS_PIN_PDN_PREV>;
+		samsung,pin-pud-pdn = <EXYNOS_PIN_PULL_NONE>;
+	};
+
+	disp_blen_ctrl: disp-blen-ctrl {
+		samsung,pins = "gpg2-1";
+		samsung,pin-con-pdn = <EXYNOS_PIN_PDN_PREV>;
+		samsung,pin-pud-pdn = <EXYNOS_PIN_PULL_NONE>;
+	};
+
+	disp_lcd_id: disp-lcd-id {
+		samsung,pins = "gpg1-7", "gpg2-0";
+		samsung,pin-con-pdn = <EXYNOS_PIN_PDN_INPUT>;
+		samsung,pin-pud-pdn = <EXYNOS_PIN_PULL_NONE>;
+	};
+
+	tsp_id_on: tsp-id-on {
+		samsung,pins = "gpg1-7", "gpg2-0";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_INPUT>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
+	};
+
+	tsp_id_off: tsp-id-off {
+		samsung,pins = "gpg1-7", "gpg2-0";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_INPUT>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_DOWN>;
+	};
+
+	nfc_i2c_pins: nfc-i2c-pins {
+		samsung,pins = "gpp0-5", "gpp0-4";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_2>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
+		samsung,pin-drv = <EXYNOS5420_PIN_DRV_LV1>;
+		samsung,pin-con-pdn = <EXYNOS_PIN_PDN_PREV>;
+	};
+
+	nfc_pvdd_pins: nfc-pvdd-pins {
+		samsung,pins = "gpg1-3";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_OUTPUT>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
+		samsung,pin-con-pdn = <EXYNOS_PIN_PDN_PREV>;
+		samsung,pin-pud-pdn = <EXYNOS_PIN_PULL_NONE>;
+	};
+
+	nfc_en: nfc-en {
+		samsung,pins = "gpg1-0";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_OUTPUT>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
+		samsung,pin-drv = <EXYNOS5420_PIN_DRV_LV1>;
+		samsung,pin-con-pdn = <EXYNOS_PIN_PDN_PREV>;
+		samsung,pin-pud-pdn = <EXYNOS_PIN_PULL_NONE>;
+	};
+
+	nfc_en_nc: nfc-en-nc {
+		samsung,pins = "gpg1-0";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_INPUT>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_DOWN>;
+		samsung,pin-con-pdn = <EXYNOS_PIN_PDN_INPUT>;
+		samsung,pin-pud-pdn = <EXYNOS_PIN_PULL_DOWN>;
+	};
+
+	nfc_firm: nfc-firm {
+		samsung,pins = "gpg1-2";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_OUTPUT>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
+		samsung,pin-val = <0>;
+		samsung,pin-con-pdn = <EXYNOS_PIN_PDN_PREV>;
+		samsung,pin-pud-pdn = <EXYNOS_PIN_PULL_NONE>;
+	};
+
+	nfc_firm_nc: nfc-firm-nc {
+		samsung,pins = "gpg1-2";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_INPUT>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_DOWN>;
+		samsung,pin-con-pdn = <EXYNOS_PIN_PDN_INPUT>;
+		samsung,pin-pud-pdn = <EXYNOS_PIN_PULL_DOWN>;
+	};
+
+	nfc_check: nfc-check {
+		samsung,pins = "gpg1-4";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_INPUT>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
+		samsung,pin-drv = <EXYNOS5420_PIN_DRV_LV2>;
+		samsung,pin-con-pdn = <EXYNOS_PIN_PDN_INPUT>;
+		samsung,pin-pud-pdn = <EXYNOS_PIN_PULL_NONE>;
+	};
+
+	sm5714_irq_pins: sm5714-irq-pins {
+		samsung,pins = "gpa1-5";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_INPUT>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
+		samsung,pin-con-pdn = <EXYNOS_PIN_PDN_INPUT>;
+		samsung,pin-pud-pdn = <EXYNOS_PIN_PULL_NONE>;
 	};
 };
 
 &oscclk {
 	clock-frequency = <26000000>;
+};
+
+&i2c_2 {
+	status = "okay";
+	clock-frequency = <400000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&nfc_i2c_pins>;
+
+	pn547@2b {
+		compatible = "pn547";
+		reg = <0x2b>;
+		pn547,irq-gpio = <&gpa1 3 GPIO_ACTIVE_HIGH>;
+		pn547,ven-gpio = <&gpg1 0 GPIO_ACTIVE_HIGH>;
+		pn547,firm-gpio = <&gpg1 2 GPIO_ACTIVE_HIGH>;
+		pn547,clk_req-gpio = <&gpa3 4 GPIO_ACTIVE_HIGH>;
+		pn547,ap_vendor = "slsi";
+		pn547,nfc-det-gpio = <&gpg1 4 GPIO_ACTIVE_HIGH>;
+		pn547,ldo_control;
+		nfc_pvdd-supply = <&nfc_pvdd>;
+		pn547,irq_all_trigger;
+		clocks = <&cmu_top CLK_OSC_NFC>;
+		clock-names = "oscclk_nfc";
+		pinctrl-names = "default", "nfc_nc";
+		pinctrl-0 = <&nfc_en &nfc_firm &nfc_xclkout &nfc_clk_req &nfc_check>;
+		pinctrl-1 = <&nfc_en_nc &nfc_firm_nc &nfc_xclkout_nc &nfc_clk_req_nc>;
+	};
+};
+
+&i2c_1 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	lm36274@11 {
+		compatible = "panel_i2c";
+		reg = <0x11>;
+	};
+};
+
+&i2c_3 {
+	status = "okay";
+	clock-frequency = <400000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c3_pins>;
+
+	sm5714@49 {
+		compatible = "siliconmitus,sm5714mfd";
+		reg = <0x49>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&sm5714_irq_pins>;
+		sm5714,irq-gpio = <&gpa1 5 GPIO_ACTIVE_HIGH>;
+		sm5714,wakeup;
+
+		sm5714-fuelgauge {
+			status = "okay";
+			fuelgauge,fuel_alert_soc = <0x01>;
+			fuelgauge,capacity_max = <0x3e8>;
+			fuelgauge,capacity_max_margin = <0x12c>;
+			fuelgauge,capacity_min = <0x00>;
+			fuelgauge,capacity_calculation_type = <0x1f>;
+			fuelgauge,using_temp_compensation;
+			fuelgauge,low_temp_limit = <0x64>;
+			fuelgauge,using_hw_vempty;
+			fuelgauge,sw_v_empty_voltage = <0xc80>;
+			fuelgauge,sw_v_empty_voltage_cisd = <0xc1c>;
+			fuelgauge,sw_v_empty_recover_voltage = <0xd98>;
+			fuelgauge,capacity = <0x1388>;
+
+			battery_params {
+				battery,id = <0x00>;
+				battery0,battery_type = <0x1130 0x2406>;
+				battery0,battery_table0 = <0x1400 0x1b49 0x1c6e 0x1d41 0x1d71 0x1d80 0x1d94 0x1dda 0x1e17 0x1e3b 0x1e53 0x1e71 0x1e97 0x1ee7 0x1f14 0x1f58 0x1fb5 0x1fec 0x2025 0x2095 0x20e3 0x2122 0x2226 0x2400>;
+				battery0,battery_table1 = <0x00 0x99 0x24c 0x480 0x599 0x74c 0xccc 0x1266 0x1ab3 0x204c 0x25cc 0x2b66 0x30e6 0x3933 0x3c00 0x3ecc 0x4466 0x49e6 0x4cb3 0x4f80 0x5500 0x57cc 0x6400 0x6419>;
+				battery0,battery_table2 = <0x4b4b 0x4444 0x4040 0x3e3e 0x3c3c 0x3b3b 0x3838 0x3737 0x3535 0x3434 0x3434 0x3333 0x3333 0x3333 0x3333 0x3232>;
+				battery0,rs_value = <0x48 0x48 0x3800 0x10a 0x599 0x599 0x50>;
+				battery0,v_alarm = <0xc1c 0xc8>;
+				battery0,topoff = <0x1f4>;
+				battery0,i_cal = <0x01 0x00 0x800 0x800 0x00 0x00 0x7e8 0x818>;
+				battery0,v_cal = <0x01 0x00 0x00 0x01 0x00 0x00 0x00>;
+				battery0,temp_std = <0x19>;
+				battery0,tem_poff = <0xd48 0x32 0xcb2 0x32>;
+				battery0,aux_ctrl = <0x322 0x5800>;
+				battery0,data_ver = <0x03>;
+				battery0,v_max_table = <0x2226 0x2203 0x21e0 0x21bc 0x2165>;
+				battery0,q_max_table = <0x2406 0x235f 0x22b9 0x2212 0x2071>;
+			};
+		};
+
+		sm5714-charger {
+			status = "okay";
+			compatible = "samsung,sm5714-charger";
+			sm5714,chg_lxslope = <0x02>;
+		};
+	};
+
+	sma1303@1e {
+		compatible = "siliconmitus,sma1303";
+		reg = <0x1e>;
+		#sound-dai-cells = <1>;
+		status = "okay";
+	};
+};
+
+&dsim_0 {
+	memory-region = <&bootloader_fb>;
 };
 
 &serial_0 {
@@ -126,6 +540,157 @@
 &usi_uart {
 	samsung,clkreq-on;
 	status = "okay";
+};
+
+&usi_cmgp0 {
+	samsung,mode = <USI_V2_SPI>;
+	status = "okay";
+};
+
+&spi_1 {
+	status = "okay";
+	num-cs = <3>;
+	no-cs-readback;
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi1_bus_pins>;
+
+	ilitek@0 {
+		compatible = "iliteck,ili9882x-spi";
+		reg = <0>;
+		spi-max-frequency = <5000000>;
+		pinctrl-names = "default", "on_state", "off_state";
+		pinctrl-0 = <&tsp_id_on &tsp_id3_on &tsp_irq_on &spi1_cs_pins &tsp_rst_on>;
+		pinctrl-1 = <&tsp_id_on &tsp_id3_on &tsp_irq_on &spi1_cs_pins &tsp_rst_on>;
+		pinctrl-2 = <&tsp_id_off &tsp_id3_off &tsp_irq_off &tsp_rst_off>;
+		iliteck,irq-gpio = <&gpa0 0 0x2008>;
+		iliteck,reset-gpio = <&gpa3 0 0>;
+		iliteck,cs-gpio = <&gpm3 0 0>;
+		iliteck,lcdid1-gpio = <&gpg1 7 0>;
+		iliteck,lcdid2-gpio = <&gpg2 0 0>;
+		iliteck,lcdid3-gpio = <&gpa0 2 0>;
+		iliteck,lcd_rst = "gpio_lcd_rst";
+		iliteck,lcd_bl_en = "gpio_lcd_bl_en";
+		iliteck,lcd_vddi = "vdd_ldo28";
+		iliteck,irq-on-state = <0>;
+		iliteck,spi-mode = <0>;
+		iliteck,byte-delay-us = <0>;
+		iliteck,block-delay-us = <0>;
+		iliteck,ubl-max-freq = <5000000>;
+		iliteck,ubl-byte-delay-us = <20>;
+		iliteck,area-size = <0x30 0x51 0x1e>;
+		iliteck,enable_settings_aot;
+		iliteck,enable_sysinput_enabled;
+		iliteck,support_ear_detect_mode;
+		iliteck,prox_lp_scan_enabled;
+		iliteck,lcd_rst_delay = <2>;
+		iliteck,lcdid = <0x03 0x07>;
+		iliteck,lcdtype = <0x00 0x00 0x00 0xba7254
+				   0x00 0x00 0x00 0x3a6250>;
+		iliteck,fw_name = "", "", "",
+			"tsp_ilitek/ili7807s_a12s.hex", "", "", "",
+			"tsp_ilitek/ili9882_a12s.hex";
+	};
+
+	novatek@1 {
+		compatible = "novatek,NVT-ts-spi";
+		reg = <1>;
+		spi-max-frequency = <9600000>;
+		pinctrl-names = "default", "on_state", "off_state";
+		pinctrl-0 = <&tsp_id_on &tsp_id3_on &tsp_irq_on &spi1_cs_pins &tsp_rst_on>;
+		pinctrl-1 = <&tsp_id_on &tsp_id3_on &tsp_irq_on &spi1_cs_pins &tsp_rst_on>;
+		pinctrl-2 = <&tsp_id_off &tsp_id3_off &tsp_irq_off &tsp_rst_off>;
+		novatek,reset-gpio = <&gpa3 0 0>;
+		novatek,irq-gpio = <&gpa0 0 0x2002>;
+		novatek,cs-gpio = <&gpm3 0 0>;
+		novatek,lcdid1-gpio = <&gpg1 7 0>;
+		novatek,lcdid2-gpio = <&gpg2 0 0>;
+		novatek,lcdid3-gpio = <&gpa0 2 0>;
+		novatek,resolution = <0x2d0 0x640>;
+		novatek,enable_settings_aot;
+		novatek,support_ear_detect_mode;
+		novatek,prox_lp_scan_enabled;
+		novatek,enable_sysinput_enabled;
+		novatek,lcdid = <0x01 0x02 0x06>;
+		novatek,lcdtype = <0x00 0xaa240 0xa1240
+				   0x00 0x00 0x00 0xaf240>;
+		novatek,fw_name = "",
+			"tsp_novatek/nt36525_a12s_csot.bin",
+			"tsp_novatek/nt36525_a12s_dtc.bin",
+			"", "", "",
+			"tsp_novatek/nt36525_a12s_sharp.bin";
+		novatek,fw_name_mp = "",
+			"tsp_novatek/nt36525_a12s_mp_csot.bin",
+			"tsp_novatek/nt36525_a12s_mp_dtc.bin",
+			"", "", "",
+			"tsp_novatek/nt36525_a12s_mp_sharp.bin";
+		novatek,regulator_lcd_vdd = "vdd_ldo28";
+		novatek,regulator_lcd_reset = "gpio_lcd_rst";
+		novatek,regulator_lcd_bl = "gpio_lcd_bl_en";
+		novatek,swrst-n8-addr = <0x3f0fe>;
+		novatek,spi-rd-fast-addr = <0x3f310>;
+		novatek,mp-support-dt;
+
+		novatek-mp-criteria-722E@0 {
+			compatible = "novatek-mp-criteria-722E";
+			open_test_spec = <0xfffffe01 0x1400>;
+			short_test_spec = <0x2710 0x36b8>;
+			diff_test_frame = <0x32>;
+			fdm_x_num = <0x02>;
+		};
+
+		novatek-mp-criteria-7232@0 {
+			compatible = "novatek-mp-criteria-7232";
+			open_test_spec = <0xfffffe01 0x1400>;
+			short_test_spec = <0x2710 0x36b8>;
+			diff_test_frame = <0x32>;
+			fdm_x_num = <0x02>;
+		};
+
+		novatek-mp-criteria-7231@0 {
+			compatible = "novatek-mp-criteria-7231";
+			open_test_spec = <0xfffffe01 0x1400>;
+			short_test_spec = <0x2710 0x36b8>;
+			diff_test_frame = <0x32>;
+			fdm_x_num = <0x02>;
+		};
+	};
+
+	synaptics@2 {
+		compatible = "synaptics,tcm-spi";
+		reg = <2>;
+		spi-max-frequency = <7000000>;
+		pinctrl-names = "default", "on_state", "off_state";
+		pinctrl-0 = <&tsp_id_on &tsp_id3_on &tsp_irq_on &spi1_cs_pins &tsp_rst_on>;
+		pinctrl-1 = <&tsp_id_on &tsp_id3_on &tsp_irq_on &spi1_cs_pins &tsp_rst_on>;
+		pinctrl-2 = <&tsp_id_off &tsp_id3_off &tsp_irq_off &tsp_rst_off>;
+		synaptics,irq-gpio = <&gpa0 0 0x2008>;
+		synaptics,irq-on-state = <0>;
+		synaptics,cs-gpio = <&gpm3 0 0>;
+		synaptics,spi-mode = <3>;
+		synaptics,byte-delay-us = <0>;
+		synaptics,block-delay-us = <0>;
+		synaptics,ubl-max-freq = <7000000>;
+		synaptics,ubl-byte-delay-us = <20>;
+		synaptics,area-size = <0x30 0x51 0x1e>;
+		synaptics,regulator_lcd_vdd = "vdd_ldo28";
+		synaptics,regulator_lcd_bl = "gpio_lcd_bl_en";
+		synaptics,regulator_lcd_reset = "gpio_lcd_rst";
+		synaptics,lcdid1-gpio = <&gpg1 7 0>;
+		synaptics,lcdid2-gpio = <&gpg2 0 0>;
+		synaptics,lcdid3-gpio = <&gpa0 2 0>;
+		synaptics,enable_settings_aot;
+		synaptics,support_cs_gpio_control;
+		synaptics,support_ear_detect_mode;
+		synaptics,prox_lp_scan_enabled;
+		synaptics,enable_sysinput_enabled;
+		synaptics,lcdid = <0x00 0x04 0x05>;
+		synaptics,lcdtype = <0x7a6220 0x00 0x00
+				    0x00 0x3a6220 0xba6220>;
+		synaptics,fw_name = "tsp_synaptics/td4375_a12s_boe.bin",
+			"", "", "",
+			"tsp_synaptics/td4150_a12s_boe.bin",
+			"tsp_synaptics/td4160_a12s_boe.bin";
+	};
 };
 
 &mmc_0 {
@@ -150,4 +715,267 @@
 
 &usbdrd_phy {
 	status = "okay";
+};
+
+&watchdog_cl0 {
+	status = "okay";
+};
+
+&watchdog_cl1 {
+	status = "okay";
+};
+
+&exynos_adc {
+	status = "okay";
+};
+
+/ {
+battery {
+	battery,fuelgauge_name = "sm5714-fuelgauge";
+	battery,fgsrc_switch_name = "sm5714-fuelgauge";
+	status = "okay";
+	compatible = "samsung,sec-battery";
+	battery,vendor = "Battery";
+	battery,charger_name = "sm5714-charger";
+	battery,technology = <0x02>;
+	battery,batt_data_version = <0x01>;
+	battery,temp_adc_type = <0x01>;
+	battery,adc_check_count = <0x05>;
+	battery,temp_check_type = <0x02>;
+	battery,usb_temp_check_type = <0x00>;
+	battery,chg_temp_check_type = <0x02>;
+	battery,wpc_temp_check_type = <0x00>;
+	battery,thermal_source = <0x02>;
+	battery,usb_thermal_source = <0x05>;
+	battery,chg_thermal_source = <0x02>;
+	battery,wpc_thermal_source = <0x05>;
+	battery,polling_time = <0x0a 0x1e 0x1e 0x1e 0xe10>;
+	battery,cable_check_type = <0x04>;
+	battery,cable_source_type = <0x01>;
+	battery,polling_type = <0x01>;
+	battery,monitor_initial_count = <0x00>;
+	battery,battery_check_type = <0x00>;
+	battery,ovp_uvlo_check_type = <0x03>;
+	battery,temp_check_count = <0x01>;
+	battery,temp_highlimit_threshold_event = <0x320>;
+	battery,temp_highlimit_recovery_event = <0x30c>;
+	battery,temp_high_threshold_event = <0x1f4>;
+	battery,temp_high_recovery_event = <0x1e0>;
+	battery,temp_low_threshold_event = <0x00>;
+	battery,temp_low_recovery_event = <0x14>;
+	battery,temp_highlimit_threshold_normal = <0x320>;
+	battery,temp_highlimit_recovery_normal = <0x30c>;
+	battery,temp_high_threshold_normal = <0x1f4>;
+	battery,temp_high_recovery_normal = <0x1e0>;
+	battery,temp_low_threshold_normal = <0x00>;
+	battery,temp_low_recovery_normal = <0x14>;
+	battery,temp_highlimit_threshold_lpm = <0x320>;
+	battery,temp_highlimit_recovery_lpm = <0x30c>;
+	battery,temp_high_threshold_lpm = <0x1f4>;
+	battery,temp_high_recovery_lpm = <0x1e0>;
+	battery,temp_low_threshold_lpm = <0x00>;
+	battery,temp_low_recovery_lpm = <0x14>;
+	battery,wpc_high_threshold_normal = <0x1c2>;
+	battery,wpc_high_recovery_normal = <0x1ae>;
+	battery,wpc_low_threshold_normal = <0x00>;
+	battery,wpc_low_recovery_normal = <0x14>;
+	battery,full_check_type = <0x02>;
+	battery,full_check_type_2nd = <0x02>;
+	battery,full_check_count = <0x01>;
+	battery,chg_gpio_full_check = <0x00>;
+	battery,chg_polarity_full_check = <0x01>;
+	battery,chg_high_temp = <0x226>;
+	battery,chg_high_temp_recovery = <0x1fe>;
+	battery,chg_input_limit_current = <0x3e8>;
+	battery,chg_charging_limit_current = <0x578>;
+	battery,wpc_temp_control_source = <0x01>;
+	battery,wpc_high_temp = <0x17c>;
+	battery,wpc_high_temp_recovery = <0x168>;
+	battery,wpc_input_limit_current = <0x258>;
+	battery,wpc_charging_limit_current = <0x3e8>;
+	battery,wpc_temp_lcd_on_control_source = <0x01>;
+	battery,wpc_lcd_on_high_temp = <0x17c>;
+	battery,wpc_lcd_on_high_temp_rec = <0x168>;
+	battery,wpc_lcd_on_input_limit_current = <0x1c2>;
+	battery,wpc_store_high_temp = <0x168>;
+	battery,wpc_store_high_temp_recovery = <0x154>;
+	battery,wpc_store_charging_limit_current = <0x190>;
+	battery,wpc_store_lcd_on_high_temp = <0x168>;
+	battery,wpc_store_lcd_on_high_temp_rec = <0x12c>;
+	battery,wpc_store_lcd_on_charging_limit_current = <0x190>;
+	battery,sleep_mode_limit_current = <0x1f4>;
+	battery,wc_full_input_limit_current = <0x64>;
+	battery,mix_high_temp = <0x1a4>;
+	battery,mix_high_chg_temp = <0x1f4>;
+	battery,mix_high_temp_recovery = <0x186>;
+	battery,full_condition_type = <0x09>;
+	battery,full_condition_soc = <0x5d>;
+	battery,full_condition_vcell = <0x109a>;
+	battery,recharge_check_count = <0x01>;
+	battery,recharge_condition_type = <0x04>;
+	battery,recharge_condition_soc = <0x62>;
+	battery,recharge_condition_vcell = <0x10b8>;
+	battery,charging_total_time = <0x3840>;
+	battery,hv_charging_total_time = <0x2a30>;
+	battery,normal_charging_total_time = <0x4650>;
+	battery,usb_charging_total_time = <0x8ca0>;
+	battery,recharging_total_time = <0x1518>;
+	battery,charging_reset_time = <0x00>;
+	battery,chg_float_voltage = <0x10fe>;
+	battery,pre_afc_work_delay = <0x7d0>;
+	battery,pre_wc_afc_work_delay = <0xfa0>;
+	battery,pre_afc_input_current = <0x1f4>;
+	battery,pre_wc_afc_input_current = <0x1f4>;
+	battery,prepare_ta_delay = <0x00>;
+	battery,swelling_high_temp_block = <0x19a>;
+	battery,swelling_high_temp_recov = <0x186>;
+	battery,swelling_low_temp_block_1st = <0x96>;
+	battery,swelling_low_temp_recov_1st = <0xaa>;
+	battery,swelling_low_temp_block_2nd = <0x32>;
+	battery,swelling_low_temp_recov_2nd = <0x46>;
+	battery,swelling_drop_float_voltage = <0x1036>;
+	battery,swelling_high_rechg_voltage = <0xfa0>;
+	battery,swelling_low_rechg_voltage = <0x1068>;
+	battery,siop_input_limit_current = <0x4b0>;
+	battery,siop_charging_limit_current = <0x3e8>;
+	battery,siop_hv_input_limit_current = <0x2bc>;
+	battery,siop_hv_input_limit_current_2nd = <0x226>;
+	battery,siop_hv_charging_limit_current = <0x3e8>;
+	battery,rp_current_rp1 = <0x1f4>;
+	battery,rp_current_rp2 = <0x5dc>;
+	battery,rp_current_rp3 = <0xbb8>;
+	battery,rp_current_rdu_rp3 = <0x834>;
+	battery,rp_current_abnormal_rp3 = <0x708>;
+	battery,pd_charging_charge_power = <0x3a98>;
+	battery,max_charging_current = <0x866>;
+	battery,store_mode_charging_max = <0x46>;
+	battery,store_mode_charging_min = <0x3c>;
+	battery,wireless_cc_cv = <0x55>;
+	battery,wireless_otg_input_current = <0x384>;
+	battery,age_data = <0x00 0x10fe 0x10b8 0x109a 0x5d 0x12c 0x10ea 0x10a4 0x1086 0x5c 0x190 0x10d6 0x1090 0x1072 0x5b 0x2bc 0x10c2 0x107c 0x105e 0x5a 0x3e8 0x1090 0x104a 0x102c 0x59>;
+	battery,max_input_voltage = <0x2328>;
+	battery,max_input_current = <0xbb8>;
+	battery,cisd_alg_index = <0x08>;
+	battery,cisd_max_voltage_thr = <0x1388>;
+	battery,ignore_cisd_index = <0x00 0x00>;
+	battery,ignore_cisd_index_d = <0x00 0x50>;
+	battery,expired_time = <0x35e8>;
+	battery,recharging_expired_time = <0x1518>;
+	battery,battery_full_capacity = <0x1388>;
+	io-channels = <&exynos_adc 1>, <&exynos_adc 3>;
+	io-channel-names = "adc-temp", "adc-chg-temp";
+	battery,chip_vendor = "LSI";
+	battery,temp_table_adc = <0x5a 0x6e 0x7c 0x91 0xa6 0xc9 0xed 0x114 0x152 0x1a5 0x1f5 0x262 0x2ca 0x357 0x3fb 0x4a2 0x573 0x667 0x775 0x885 0x992 0xa8d 0xb5a>;
+	battery,temp_table_data = <0x384 0x352 0x320 0x2ee 0x2bc 0x28a 0x258 0x226 0x1f4 0x1c2 0x190 0x15e 0x12c 0xfa 0xc8 0x96 0x64 0x32 0x00 0xffffffce 0xffffff9c 0xffffff6a 0xffffff38>;
+	battery,chg_temp_table_adc = <0x10b 0x15b 0x1b3 0x1ef 0x23f 0x2a9 0x318 0x39a 0x416 0x4c6 0x578 0x654 0x715 0x7f4 0x8c6 0x988 0xa57 0xb51 0xc17 0xcda 0xd6f 0xde4 0xe44>;
+	battery,chg_temp_table_data = <0x384 0x352 0x320 0x2ee 0x2bc 0x28a 0x258 0x226 0x1f4 0x1c2 0x190 0x15e 0x12c 0xfa 0xc8 0x96 0x64 0x32 0x00 0xffffffce 0xffffff9c 0xffffff6a 0xffffff38>;
+	battery,overheatlimit_threshold = <0x2bc>;
+	battery,overheatlimit_recovery = <0x2a8>;
+	battery,wire_warm_overheat_thresh = <0x1f4>;
+	battery,wire_normal_warm_thresh = <0x1a4>;
+	battery,wire_cool1_normal_thresh = <0x96>;
+	battery,wire_cool2_cool1_thresh = <0x96>;
+	battery,wire_cool3_cool2_thresh = <0x32>;
+	battery,wire_cold_cool3_thresh = <0x00>;
+	battery,wire_warm_current = <0x514>;
+	battery,wire_cool1_current = <0x8fc>;
+	battery,wire_cool2_current = <0x352>;
+	battery,wire_cool3_current = <0x1ea>;
+	battery,high_temp_topoff = <0xfa>;
+	battery,low_temp_topoff = <0xfa>;
+	battery,high_temp_float = <0x1036>;
+	battery,low_temp_float = <0x10fe>;
+	battery,max_charging_charge_power = <0x3a98>;
+	battery,batt_temp_adj_gap_inc = <0x14>;
+	battery,health_condition = <0x384 0x00 0x4b0 0x00 0x5dc 0x00>;
+	battery,standard_curr = <0x866>;
+	battery,ttf_hv_charge_current = <0x7c1>;
+	battery,ttf_capacity = <0x11d5>;
+	battery,cv_data = <0x8db 0x37a 0x618 0x846 0x384 0x5be 0x7d1 0x38e 0x5a0 0x703 0x398 0x53b 0x660 0x3a2 0x4d2 0x596 0x3ac 0x467 0x494 0x3b6 0x377 0x41a 0x3c0 0x31d 0x389 0x3ca 0x2a4 0x2a2 0x3d4 0x186 0x225 0x3de 0x78 0x1d7 0x3e8 0x00>;
+};
+
+cable-info {
+	default_input_current = <0x708>;
+	default_charging_current = <0x834>;
+	full_check_current_1st = <0x1db>;
+	full_check_current_2nd = <0xfa>;
+
+	current_group_1 {
+		cable_number = <0x02 0x13 0x15 0x16 0x17>;
+		input_current = <0x1f4>;
+		charging_current = <0x1f4>;
+	};
+
+	current_group_2 {
+		cable_number = <0x19 0x1f>;
+		input_current = <0x3e8>;
+		charging_current = <0x3e8>;
+	};
+
+	current_group_3 {
+		cable_number = <0x05 0x20>;
+		input_current = <0x5dc>;
+		charging_current = <0x5dc>;
+	};
+
+	current_group_4 {
+		cable_number = <0x06 0x07 0x08 0x11 0x12 0x28>;
+		input_current = <0x672>;
+		charging_current = <0x866>;
+	};
+
+	current_group_5 {
+		cable_number = <0x09>;
+		input_current = <0x672>;
+		charging_current = <0x866>;
+	};
+
+	current_group_6 {
+		cable_number = <0x0a 0x0c 0x0f 0x1b 0x21 0x24>;
+		input_current = <0x320>;
+		charging_current = <0x866>;
+	};
+
+	current_group_7 {
+		cable_number = <0x0d>;
+		input_current = <0x2bc>;
+		charging_current = <0x866>;
+	};
+
+	current_group_8 {
+		cable_number = <0x18>;
+		input_current = <0x3e8>;
+		charging_current = <0x1c2>;
+	};
+
+	current_group_9 {
+		cable_number = <0x1a>;
+		input_current = <0x708>;
+		charging_current = <0x708>;
+	};
+
+	current_group_10 {
+		cable_number = <0x0b 0x0e 0x10 0x1c 0x23>;
+		input_current = <0x28a>;
+		charging_current = <0x866>;
+	};
+
+	current_group_11 {
+		cable_number = <0x1d 0x25>;
+		input_current = <0x1f4>;
+		charging_current = <0x4b0>;
+	};
+
+	current_group_12 {
+		cable_number = <0x01 0x04 0x1e>;
+		input_current = <0x1db>;
+		charging_current = <0x226>;
+	};
+
+	current_group_13 {
+		cable_number = <0x22>;
+		input_current = <0x4b0>;
+		charging_current = <0x92e>;
+	};
+};
 };

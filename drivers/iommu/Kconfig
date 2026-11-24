@@ -267,6 +267,21 @@ config EXYNOS_IOMMU
 
 	  If unsure, say N here.
 
+config SAMSUNG_IOMMU
+	bool "Samsung System MMU v8 support"
+	depends on ARM64 && ARCH_EXYNOS && IOMMU_SUPPORT
+	select IOMMU_API
+	select SAMSUNG_IOMMU_GROUP
+	help
+	  Support Samsung Exynos System MMU v8 controllers.
+
+config SAMSUNG_IOMMU_GROUP
+	bool
+	depends on ARCH_EXYNOS || COMPILE_TEST
+	depends on !CPU_BIG_ENDIAN
+	select IOMMU_API
+	select ARM_DMA_USE_IOMMU
+
 config EXYNOS_IOMMU_DEBUG
 	bool "Debugging log for Exynos IOMMU"
 	depends on EXYNOS_IOMMU

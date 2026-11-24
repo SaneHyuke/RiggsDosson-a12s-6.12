@@ -1,0 +1,44 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config EXYNOS_DPU30_3830
+	bool
+
+config EXYNOS_DPU30
+	bool "Samsung Exynos DPU30 display support"
+	depends on FB && ARCH_EXYNOS && MEDIA_SUPPORT
+	select EXYNOS_DPU30_3830
+	select EXYNOS_MIPI_DSIM
+	select MEDIA_CONTROLLER
+	select SAMSUNG_IOMMU
+	select PHY_EXYNOS_MIPI_DSIM
+	select VIDEO_DEV
+	select VIDEO_V4L2_SUBDEV_API
+
+config EXYNOS_DPP
+	bool
+	default y if EXYNOS_DPU30
+
+config EXYNOS_MIPI_DSIM
+	bool
+	default y if EXYNOS_DPU30
+
+config EXYNOS_COMMON_PANEL
+	bool "Exynos common panel driver"
+	depends on EXYNOS_DPU30
+	select BACKLIGHT_CLASS_DEVICE
+	default y
+
+config PANEL_AID_DIMMING
+	bool
+	default y if EXYNOS_COMMON_PANEL
+
+config EXYNOS_DECON_LCD_NT36525B_CTC_A12S
+	bool "NT36525B CTC A12S LCD driver"
+	depends on EXYNOS_DPU30 && EXYNOS_COMMON_PANEL
+	select SUPPORT_I2C
+	default y
+
+config SUPPORT_I2C
+	bool "LCD I2C support"
+	depends on I2C
+	default y if EXYNOS_DECON_LCD_NT36525B_CTC_A12S

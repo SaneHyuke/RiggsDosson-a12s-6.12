@@ -298,6 +298,8 @@ typedef struct sm5714_fuelgauge_platform_data {
 #endif
 } sm5714_fuelgauge_platform_data_t;
 
+struct dentry;
+
 struct sm5714_fuelgauge_data {
 	struct device           *dev;
 	struct i2c_client       *i2c;
@@ -307,6 +309,10 @@ struct sm5714_fuelgauge_data {
 	sm5714_fuelgauge_platform_data_t *pdata; //long.vu
 	struct power_supply		*psy_fg;
 	struct delayed_work isr_work;
+	struct dentry *debugfs;
+	bool work_initialized;
+	bool irq_requested;
+	bool attrs_created;
 
 	u8 pmic_rev;
 	u8 vender_id;

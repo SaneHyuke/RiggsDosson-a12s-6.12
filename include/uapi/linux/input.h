@@ -19,6 +19,10 @@
 
 #include "input-event-codes.h"
 
+#define INPUT_FEATURE_ENABLE_SETTINGS_AOT		(1 << 0)
+#define INPUT_FEATURE_ENABLE_SYSINPUT_ENABLED	(1 << 5)
+#define INPUT_FEATURE_ENABLE_PROX_LP_SCAN_ENABLED	(1 << 6)
+
 /*
  * The event structure itself
  * Note that __USE_TIME_BITS64 is defined by libc based on

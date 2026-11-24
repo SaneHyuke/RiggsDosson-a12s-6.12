@@ -188,6 +188,15 @@ config INPUT_APMPOWER
 	  To compile this driver as a module, choose M here: the
 	  module will be called apm-power.
 
+config INPUT_SEC_CMD
+	tristate "Samsung factory command interface"
+	depends on INPUT
+	help
+	  Say Y here to enable the factory command interface used by
+	  Samsung touchscreen drivers.
+
+	  If unsure, say N.
+
 comment "Input Device Drivers"
 
 source "drivers/input/keyboard/Kconfig"

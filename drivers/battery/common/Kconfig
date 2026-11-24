@@ -1,0 +1,23 @@
+# Samsung battery configuration
+
+menu "Samsung battery support"
+
+config BATTERY_SAMSUNG
+	tristate "Samsung battery driver"
+	help
+	  Include the Samsung integrated battery driver. Optional charger,
+	  fuel gauge, MUIC and PDIC integrations are configured separately.
+
+config BATTERY_SAMSUNG_LEGO_STYLE
+	tristate "Samsung battery driver (LEGO style)"
+	default n
+	depends on BATTERY_SAMSUNG
+	help
+	  Enable the LEGO-style Samsung battery driver implementation.
+
+config BATTERY_CISD
+	bool "Samsung battery CISD support"
+	help
+	  Enable cell internal short detection and battery event accounting.
+
+endmenu

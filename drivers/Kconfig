@@ -83,6 +83,10 @@ source "drivers/w1/Kconfig"
 
 source "drivers/power/Kconfig"
 
+source "drivers/battery/common/Kconfig"
+source "drivers/battery/charger/sm5714-charger/Kconfig"
+source "drivers/battery/fuelgauge/sm5714-fuelgauge/Kconfig"
+
 source "drivers/hwmon/Kconfig"
 
 source "drivers/thermal/Kconfig"
