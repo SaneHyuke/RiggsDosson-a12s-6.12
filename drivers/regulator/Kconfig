@@ -1322,6 +1322,12 @@ config REGULATOR_RTQ2208
 	  and two ldos. It features wide output voltage range from 0.4V to 2.05V
 	  and the capability to configure the corresponding power stages.
 
+config REGULATOR_S2MPU12
+	tristate "Samsung S2MPU12 voltage regulator"
+	depends on MFD_S2MPU12
+	help
+	  Support the Samsung S2MPU12 Buck converters and LDO outputs.
+
 config REGULATOR_S2MPA01
 	tristate "Samsung S2MPA01 voltage regulator"
 	depends on MFD_SEC_CORE || COMPILE_TEST

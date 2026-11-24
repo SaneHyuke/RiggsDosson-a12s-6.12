@@ -1978,6 +1978,12 @@ config RTC_DRV_STM32
 	   This driver can also be built as a module, if so, the module
 	   will be called "rtc-stm32".
 
+config RTC_DRV_S2MPU12
+	tristate "Samsung S2MPU12 RTC"
+	depends on MFD_S2MPU12
+	help
+	  Support the RTC in the Samsung S2MPU12 PMIC.
+
 config RTC_DRV_CPCAP
 	depends on MFD_CPCAP
 	tristate "Motorola CPCAP RTC"

@@ -273,6 +273,10 @@ obj-$(CONFIG_MFD_ROHM_BD957XMUF)	+= rohm-bd9576.o
 obj-$(CONFIG_MFD_ROHM_BD96801)	+= rohm-bd96801.o
 obj-$(CONFIG_MFD_STMFX) 	+= stmfx.o
 obj-$(CONFIG_MFD_KHADAS_MCU) 	+= khadas-mcu.o
+obj-$(CONFIG_MFD_S2MPU12)	+= s2mpu12_mfd.o
+s2mpu12_mfd-$(CONFIG_MFD_S2MPU12) += s2mpu12-core.o s2mpu12-irq.o
+obj-$(CONFIG_MFD_SM5714)	+= sm5714_mfd.o
+sm5714_mfd-$(CONFIG_MFD_SM5714) += sm5714-core.o sm5714-irq.o
 obj-$(CONFIG_MFD_ACER_A500_EC)	+= acer-ec-a500.o
 obj-$(CONFIG_MFD_QCOM_PM8008)	+= qcom-pm8008.o
 

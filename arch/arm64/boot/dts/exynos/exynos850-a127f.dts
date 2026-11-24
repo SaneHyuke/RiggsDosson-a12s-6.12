@@ -1,0 +1,153 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Samsung Galaxy A12s (SM-A127F), Exynos 850 / 3830
+ *
+ * This is a minimal upstream-Exynos850 port. Board-specific PMIC, panel,
+ * camera, modem, and peripheral nodes must come from the stock A12s DTBO
+ * only after each compatible binding is confirmed for this 6.12 tree.
+ */
+
+/dts-v1/;
+
+#include "exynos850.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
+
+/ {
+	model = "Samsung Galaxy A12s";
+	compatible = "samsung,a127f", "samsung,a12s", "samsung,exynos850";
+
+	aliases {
+		mmc0 = &mmc_0;
+		serial0 = &serial_0;
+	};
+
+	chosen {
+		stdout-path = &serial_0;
+		bootargs = "console=ttyS0,115200n8 rootwait";
+	};
+
+	reg_usb_dummy: regulator-usb-dummy {
+		compatible = "regulator-fixed";
+		regulator-name = "usb_dummy";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+	};
+
+	lcd_fixed_regulator {
+		compatible = "simple-bus";
+
+		gpio_lcd_rst: lcd-rst {
+			compatible = "regulator-fixed";
+			regulator-name = "gpio_lcd_rst";
+			gpio = <&gpg2 4 GPIO_ACTIVE_HIGH>;
+			enable-active-high;
+			regulator-boot-on;
+		};
+
+		gpio_lcd_bl_en: lcd-bl-en {
+			compatible = "regulator-fixed";
+			regulator-name = "gpio_lcd_bl_en";
+			gpio = <&gpg2 1 GPIO_ACTIVE_HIGH>;
+			enable-active-high;
+			regulator-boot-on;
+		};
+	};
+
+	/* 4 GiB layout confirmed by the Android 13 S5E3830 base.
+	 * The secure/bootloader reserved regions are not modeled here yet.
+	 */
+	memory@80000000 {
+		device_type = "memory";
+		reg = <0x0 0x80000000 0x80000000>,
+		      <0x8 0x80000000 0x80000000>;
+	};
+
+	mali: mali@11500000 {
+		compatible = "arm,mali-bifrost", "arm,mali";
+		reg = <0x0 0x11500000 0x5000>;
+		interrupts = <GIC_SPI 126 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 127 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 125 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "JOB", "MMU", "GPU";
+		governor = "interactive";
+		gpu_dvfs_table_size = <0x06 0x07>;
+		gpu_dvfs_table = <0xf4628 0x5f 0x64 0x01 0x177bb8 0x1e8c50 0x00
+				  0xd32e8 0x50 0x5a 0x01 0x177bb8 0x1e8c50 0x00
+				  0xb8150 0x50 0x5a 0x01 0x14a140 0x163780 0x00
+				  0x91ff0 0x46 0x5a 0x01 0xf78f0 0x101148 0x00
+				  0x69b68 0x3c 0x50 0x01 0xce4c8 0xc4c70 0x00
+				  0x5c0a8 0x00 0x46 0x01 0xa50a0 0x9eb10 0x00>;
+		gpu_max_clock = <0xf4628>;
+		gpu_max_clock_limit = <0xf4628>;
+		gpu_min_clock = <0x5c0a8>;
+		gpu_dvfs_start_clock = <0x5c0a8>;
+		gpu_dvfs_bl_config_clock = <0x5c0a8>;
+		gpu_dvfs_time_interval = <0x05>;
+		gpu_dvfs_polling_time = <0x1e>;
+		gpu_tmu_control = <0x01>;
+		gpu_bts_support = <0x01>;
+		status = "okay";
+	};
+
+	gpio-keys {
+		compatible = "gpio-keys";
+		autorepeat;
+
+		key-power {
+			label = "Power";
+			gpios = <&gpa1 5 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_POWER>;
+			wakeup-source;
+		};
+
+		key-volume-up {
+			label = "Volume Up";
+			gpios = <&gpa0 2 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_VOLUMEUP>;
+		};
+
+		key-volume-down {
+			label = "Volume Down";
+			gpios = <&gpa0 3 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_VOLUMEDOWN>;
+		};
+	};
+};
+
+&oscclk {
+	clock-frequency = <26000000>;
+};
+
+&serial_0 {
+	status = "okay";
+};
+
+&usi_uart {
+	samsung,clkreq-on;
+	status = "okay";
+};
+
+&mmc_0 {
+	status = "okay";
+	mmc-hs200-1_8v;
+	mmc-hs400-1_8v;
+	cap-mmc-highspeed;
+	non-removable;
+	mmc-hs400-enhanced-strobe;
+	bus-width = <8>;
+};
+
+&usbdrd {
+	status = "okay";
+	vdd10-supply = <&reg_usb_dummy>;
+	vdd33-supply = <&reg_usb_dummy>;
+};
+
+&usbdrd_dwc3 {
+	dr_mode = "peripheral";
+};
+
+&usbdrd_phy {
+	status = "okay";
+};

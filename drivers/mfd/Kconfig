@@ -1158,6 +1158,22 @@ config MFD_PM8XXX
 	  Say M here if you want to include support for PM8xxx chips as a
 	  module. This will build a module called "pm8xxx-core".
 
+config MFD_SM5714
+	tristate "Siliconmitus SM5714 IFPM Support"
+	depends on I2C
+	select MFD_CORE
+	help
+	  Support the SM5714 charger, fuel gauge, MUIC, and flash LED.
+
+config MFD_S2MPU12
+	tristate "Samsung Electronics S2MPU12 PMIC Support"
+	depends on I2C
+	select MFD_CORE
+	select REGULATOR
+	help
+	  Support for the Samsung S2MPU12 PMIC. This core driver exposes
+	  the PMIC regulator, RTC, and power-key subdevices.
+
 config MFD_QCOM_RPM
 	tristate "Qualcomm Resource Power Manager (RPM)"
 	depends on ARCH_QCOM && OF

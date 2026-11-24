@@ -174,6 +174,13 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_MODEL_NAME,
 	POWER_SUPPLY_PROP_MANUFACTURER,
 	POWER_SUPPLY_PROP_SERIAL_NUMBER,
+	/*
+	 * Properties of type `int'. Appended at the end of list to minimize ABI
+	 * breakage.
+	 */
+	POWER_SUPPLY_PROP_USBIF_VENDOR_ID,
+	POWER_SUPPLY_PROP_USBIF_PRODUCT_ID,
+	POWER_SUPPLY_PROP_CHARGE_ENABLED,
 };
 
 enum power_supply_type {
