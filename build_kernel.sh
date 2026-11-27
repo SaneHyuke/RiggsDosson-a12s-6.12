@@ -32,24 +32,41 @@ fi
 export PATH="$CLANG_DIR/bin:$PATH"
 echo "Using toolchain: $CLANG_DIR"
 
-for tool in clang ld.lld llvm-ar llvm-nm; do
+for tool in clang ld.lld llvm-ar llvm-nm make depmod tar gzip; do
 	command -v "$tool" >/dev/null || {
 		echo "ERROR: $tool is required" >&2
 		exit 1
 	}
 done
 
+OUT_DIR="$ROOT/out/a12s"
+MODULES_INSTALL_DIR="$OUT_DIR/modules"
+MODULES_ARCHIVE="$OUT_DIR/a12s-modules.tar.gz"
+
 MAKE_FLAGS=(
 	ARCH=arm64
 	LLVM=1
 )
 
+mkdir -p "$OUT_DIR"
 make "${MAKE_FLAGS[@]}" exynos850_a12s_defconfig
-make "${MAKE_FLAGS[@]}" -j"$JOBS" Image.gz exynos/exynos850-a127f.dtb
+make "${MAKE_FLAGS[@]}" -j"$JOBS" Image.gz exynos/exynos850-a127f.dtb modules
+
+KERNELRELEASE="$(make "${MAKE_FLAGS[@]}" -s kernelrelease)"
+make "${MAKE_FLAGS[@]}" INSTALL_MOD_PATH="$MODULES_INSTALL_DIR" modules_install
+
+tar --sort=name --mtime="@${SOURCE_DATE_EPOCH:-0}" \
+	--owner=0 --group=0 --numeric-owner \
+	--exclude="$MODULES_INSTALL_DIR/lib/modules/$KERNELRELEASE/build" \
+	--exclude="$MODULES_INSTALL_DIR/lib/modules/$KERNELRELEASE/source" \
+	--transform="s|^/*${MODULES_INSTALL_DIR#/}/lib/||" \
+	-cf - "$MODULES_INSTALL_DIR/lib/modules/$KERNELRELEASE" \
+	| gzip -n > "$MODULES_ARCHIVE"
 
 ARTIFACTS=(
 	arch/arm64/boot/Image.gz
 	arch/arm64/boot/dts/exynos/exynos850-a127f.dtb
+	"$MODULES_ARCHIVE"
 )
 
 for artifact in "${ARTIFACTS[@]}"; do

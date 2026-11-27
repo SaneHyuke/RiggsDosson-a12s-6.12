@@ -82,7 +82,7 @@
 		};
 	};
 
-	/* 4 GiB layout confirmed by the Android 13 S5E3830 base.
+	/* Two 2 GiB ranges from the Android 13 S5E3830 device tree.
 	 * The secure/bootloader reserved regions are not modeled here yet.
 	 */
 	memory@80000000 {
@@ -417,7 +417,7 @@
 	};
 
 	sm5714_irq_pins: sm5714-irq-pins {
-		samsung,pins = "gpa1-5";
+		samsung,pins = "gpa2-5";
 		samsung,pin-function = <EXYNOS_PIN_FUNC_INPUT>;
 		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
 		samsung,pin-con-pdn = <EXYNOS_PIN_PDN_INPUT>;
@@ -476,7 +476,7 @@
 		reg = <0x49>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&sm5714_irq_pins>;
-		sm5714,irq-gpio = <&gpa1 5 GPIO_ACTIVE_HIGH>;
+		sm5714,irq-gpio = <&gpa2 5 GPIO_ACTIVE_HIGH>;
 		sm5714,wakeup;
 
 		sm5714-fuelgauge {
@@ -554,8 +554,10 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&spi1_bus_pins>;
 
+	/* Only the nt36525b CTC panel selected by lcdtype=0xaa240 is active. */
 	ilitek@0 {
 		compatible = "iliteck,ili9882x-spi";
+		status = "disabled";
 		reg = <0>;
 		spi-max-frequency = <5000000>;
 		pinctrl-names = "default", "on_state", "off_state";
@@ -657,6 +659,7 @@
 
 	synaptics@2 {
 		compatible = "synaptics,tcm-spi";
+		status = "disabled";
 		reg = <2>;
 		spi-max-frequency = <7000000>;
 		pinctrl-names = "default", "on_state", "off_state";
